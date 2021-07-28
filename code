@@ -1,0 +1,75 @@
+uint8_t motion1,motion2,motion3 = 0;
+uint8_t motionstate1, motionstate2, motionstate3 = 0;
+const int Yellowled = PB5;
+
+void setup()
+{
+  Serial.begin(9600); //initialize serial
+  
+  pinMode(2, INPUT); //sets first sensor as input
+  pinMode(3, INPUT); // Sets second motion sensor as an Input
+  pinMode(4, INPUT); // Sets third motion sensor as an Input
+  pinMode(7, OUTPUT); // Sets the buzzer as an Output
+  pinMode(11, OUTPUT); //sets led1 as output
+  pinMode(12, OUTPUT); //sets led2 as output
+  pinMode(13, OUTPUT); //sets yellow led as output
+  
+  DDRB |= (1 << Yellowled);
+ 
+  PCICR |= 0b00000111;
+  
+  PCMSK2 |=0b00011100;
+  
+  //cli(); // stop interrupts
+  
+  TCCR1A = 0; // set entire TCCR1A register to 0
+  TCCR1B = 0; // same for TCCR1B
+  TCNT1  = 0; // initialize counter value to 0
+  
+  // set compare match register for 0.5 Hz increments
+  OCR1A = 31249; // = 16000000 / (1024 * 0.5) - 1 (must be <65536)
+  // turn on CTC mode
+  TCCR1B |= (1 << WGM12);
+  // Set CS12, CS11 and CS10 bits for 1024 prescaler
+  TCCR1B |= (1 << CS12) | (0 << CS11) | (1 << CS10);
+  // enable timer compare interrupt
+  TIMSK1 |= (1 << OCIE1A);
+  sei(); // allow interrupts
+
+ 
+}
+
+
+void loop() {
+  
+  if(motion1 != motionstate1 ){
+    digitalWrite(11,motionstate1);
+    Serial.println("Motion Sensor 1 Interrupt - Turned Red LED");
+    motion1 =  motionstate1;
+  }
+  
+  else if(motion2 != motionstate2){
+    digitalWrite(12,motionstate2);
+    Serial.println("Motion Sensor 2 Interrupt - Turned blue LED");
+    motion2 =  motionstate2;
+  }
+
+  else if(motion3 != motionstate3){
+    digitalWrite(7,motionstate3);
+    Serial.println("Tilt sensor Interrupt - Buzzed");
+    motion3 =  motionstate3;
+  }
+  
+}
+ISR(PCINT2_vect)
+{
+  motionstate1 = PIND & B00000100;
+  motionstate2 = PIND & B00001000;
+  motionstate3 = PIND & B00010000;
+  
+}
+
+ISR(TIMER1_COMPA_vect){
+  TCNT1 = 0;
+  PORTB ^= (1 << Yellowled);
+}
